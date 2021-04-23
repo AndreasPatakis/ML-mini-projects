@@ -9,7 +9,7 @@ class Neural_Network:
         self.Weights = []
         self.Biases = np.array
         self.H = []
-        self.d_Hout_Total = np.array
+        self.d_Hout_Total = []
         self.Evaluation = 0
         self.d_Weights = []
         self.d_Biases = []
@@ -182,12 +182,13 @@ class Neural_Network:
                         w_temp.append(derivative)
                 else:
                     for input in self.H[layer-1]:
-                        derivative = d_h_out*z*input[0]
+                        derivative = d_h_out*z*input[1]
                         w_temp.append(derivative)
                 w_reverse[:,node] += np.array(w_temp).T
                 b_reverse[node] += b
                 self.d_Weights[layers-layer]+=w_reverse
                 self.d_Biases[layers-layer]+=b_reverse
+
 
 
     #X is a matrix, each row represents each input and each column the current value of a set
@@ -203,6 +204,8 @@ class Neural_Network:
                 self.__backprop_Last(observed)
                 #self.__backprop_Previous1(observed,set)
                 self.__backprop_Previous2(set)
+                # print(self.d_Hout_Total)
+                # input()
                 #print(self.d_Weights)
                 #input()
             self.d_Weights.reverse()                     #d_Weights contains the Sum of the derivatives of the weights. Reverse(because [0] == last layer weights)
@@ -228,8 +231,10 @@ class Neural_Network:
                     step_size = derivative*self.Learning_Rate
                     new_bias = old_bias - step_size
                     self.Biases[layer][node] = new_bias
+            #print(self.d_Weights)
             self.d_Weights = []
             self.d_Biases = []
+
 
 
     def get_Eval(self):

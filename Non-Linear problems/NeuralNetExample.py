@@ -44,6 +44,6 @@ test_int = [item[:-1] for item in test_int]
 
 #Neural_Network(Num_Of_Inputs_Features,Nodes_Of_Each_Layer,Learning_Rate)
 net1 = Neural_Network(3,[6,3],0.2)
-#.train(Inputs,Outputs,Num_Of_Iterations)
+#.train(Inputs,Outputs,Num_Of_Iterations,Batch)
 net1.train(train_int,y_train,50,20)
 net1.test(test_int,y_test)
