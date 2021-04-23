@@ -7,8 +7,9 @@ class Neural_Network:
         self.Layers = Layers
         self.Learning_Rate = a
         self.Weights = []
-        self.Biases = []
+        self.Biases = np.array
         self.H = []
+        self.d_Hout_Total = np.array
         self.Evaluation = 0
         self.d_Weights = []
         self.d_Biases = []
@@ -28,7 +29,7 @@ class Neural_Network:
         r = f * (1 - f)
         return r
 
-    #Calculates the derivative dErrorTotal/da(L-1)out for the node curr_node
+    #Calculates the derivative dErrorTotal/dh(L-1)out for the node curr_node
     def __d_SSR(self,observed,curr_node):
         sum = 0
         for node in range(self.Layers[-1]):
@@ -38,19 +39,30 @@ class Neural_Network:
             sum += -2*(observed[node]-predicted)*self.__d_sigmoid(z)*w
         return sum
 
-    def __batches(self,inputs):
-        batch = 45
-        remaining = inputs%batch
-        while(remaining!=0):
-            batch += 1
-            remaining = inputs%batch
-        return batch
+    #Calculates the derivate of every node(h_out)
+    #Practically this means that we calculate the total "contribution"
+    #of each node to the final outcome(SSR)
+    def __d_hout(self,curr_l,curr_node):
+        next_layer = curr_l + 1
+        next_layer_nodes = self.Layers[next_layer]
+        d_h_out = 0
+        for node in range(next_layer_nodes):
+            d_h_out_next_node = self.d_Hout_Total[next_layer][node]
+            d_act_next_node = self.__d_sigmoid(self.H[next_layer][node][0])
+            d_w_next_node = self.Weights[next_layer][curr_node][node]
+            d_next_node = d_h_out_next_node * d_act_next_node * d_w_next_node
+            d_h_out += d_next_node
+        return d_h_out
+
+
+
 
     #Methods of parent class
     def __do_prework(self):
         num_of_layers = len(self.Layers)
         weights = [[]for x in range(num_of_layers)]
         biases = [[]for x in range(num_of_layers)]
+        hout = [[]for x in range(num_of_layers)]
         for layer,nodes in enumerate(self.Layers):
             b = []
             if(layer == 0): #The first layer so we have to take as inputs the Xi's
@@ -67,10 +79,14 @@ class Neural_Network:
                     for inputs in range(self.Layers[layer-1]):
                         w[node].append(rand.uniform(0.0,1.0))
             biases[layer] = np.array(b)
+            #d_Hout_Total has the same matrix structure as biases, so we just copy that.
+            #THERE IS NO RELATION BETWEEN THE TWO.
+            hout[layer] = np.array(b)
             w_i = np.array(w).T
             weights[layer] = w_i
         self.Weights = weights
         self.Biases = biases
+        self.d_Hout_Total = hout
         self.H = [[]for x in range(num_of_layers)]
 
     def __forward_feed(self,set):
@@ -95,26 +111,28 @@ class Neural_Network:
         y = self.Layers[-1]
         w_reverse = np.zeros(shape=(x,y))
         b_reverse = np.zeros(y)
+        if(len(self.d_Weights) < 1):
+            self.d_Weights.append(w_reverse)
+            self.d_Biases.append(b_reverse)
         for curr_node in range(self.Layers[-1]):    #For each node of the last layer
             w_temp = []
             predicted_curr = self.H[-1][curr_node][1]
             z = self.H[-1][curr_node][0]
-            b = -2*(observed[curr_node]-predicted_curr)*self.__d_sigmoid(z)
+            d_h_out_last = -2*(observed[curr_node]-predicted_curr)
+            self.d_Hout_Total[layers-1][curr_node] = d_h_out_last
+            b = d_h_out_last * self.__d_sigmoid(z)
             for prev_node in range(self.Layers[-2]):
                 predicted_prev = self.H[-2][prev_node][1]
-                r = -2*(observed[curr_node]-predicted_curr)*self.__d_sigmoid(z)*predicted_prev
-                w_temp.append(r)
+                derivate = d_h_out_last * self.__d_sigmoid(z)*predicted_prev
+                w_temp.append(derivate)
             w_reverse[:,curr_node] += np.array(w_temp).T
             b_reverse[curr_node] += b
-        if(len(self.d_Weights) == 0):
-            self.d_Weights.append(w_reverse)
-            self.d_Biases.append(b_reverse)
-        else:
-            self.d_Weights[0]+=w_reverse
-            self.d_Biases[0]+=b_reverse
+        self.d_Weights[0]+=w_reverse
+        self.d_Biases[0]+=b_reverse
 
 
-    def __backprop_Previous(self,observed,dataset):
+
+    def __backprop_Previous1(self,observed,dataset):
         x = self.X
         y = self.Layers[-2]
         w_reverse = np.zeros(shape=(x,y))
@@ -122,7 +140,8 @@ class Neural_Network:
         #for each node in the layer -2
         for node in range(self.Layers[-2]):
             w_temp = []
-            SSR_sum = self.__d_SSR(observed,node)
+            #SSR_sum = self.__d_SSR(observed,node)
+            SSR_sum = self.__d_hout(0,node)
             z = self.__d_sigmoid(self.H[-2][node][0])
             b = SSR_sum*z
             for input in dataset:
@@ -130,44 +149,77 @@ class Neural_Network:
                 w_temp.append(r)
             w_reverse[:,node] += np.array(w_temp).T
             b_reverse[node] += b
-        if(len(self.d_Weights) == 1):
-            self.d_Weights.append(w_reverse)
-            self.d_Biases.append(b_reverse)
-        else:
-            self.d_Weights[1]+=w_reverse
-            self.d_Biases[1]+=b_reverse
+            if(len(self.d_Weights) == 1):
+                self.d_Weights.append(w_reverse)
+                self.d_Biases.append(b_reverse)
+            else:
+                self.d_Weights[1]+=w_reverse
+                self.d_Biases[1]+=b_reverse
 
+
+    def __backprop_Previous2(self,set):
+        layers = len(self.Layers)-1
+        for layer in range(layers-1,-1,-1):
+            curr_nodes = self.Layers[layer]
+            if(layer == 0):
+                prev_nodes = self.X
+            else:
+                prev_nodes = self.Layers[layer-1]
+            w_reverse = np.zeros(shape=(prev_nodes,curr_nodes))
+            b_reverse = np.zeros(curr_nodes)
+            if(len(self.d_Weights) < layers+1):
+                self.d_Weights.append(w_reverse)
+                self.d_Biases.append(b_reverse)
+            for node in range(self.Layers[layer]):
+                w_temp = []
+                d_h_out = self.__d_hout(layer,node)
+                self.d_Hout_Total[layer][node] = d_h_out
+                z = self.__sigmoid(self.H[layer][node][0])
+                b = d_h_out*z
+                if(layer == 0):
+                    for input in set:
+                        derivative = d_h_out*z*input
+                        w_temp.append(derivative)
+                else:
+                    for input in self.H[layer-1]:
+                        derivative = d_h_out*z*input[0]
+                        w_temp.append(derivative)
+                w_reverse[:,node] += np.array(w_temp).T
+                b_reverse[node] += b
+                self.d_Weights[layers-layer]+=w_reverse
+                self.d_Biases[layers-layer]+=b_reverse
 
 
     #X is a matrix, each row represents each input and each column the current value of a set
     #Y is a matrix containing the observed results for each set of inputs
-    def __GradientDescent(self,X,Y):
-        #input(self.d_Weights)
+    def __GradientDescent(self,X,Y,batch):
         total_sets = len(X[0])
-        batches = self.__batches(total_sets)
-        mini_batch = int(total_sets/batches)
-        for j in range(batches):
-            for i in range(j*mini_batch,(j+1)*mini_batch):
+        total_batches = int(total_sets/batch)
+        for j in range(total_batches):
+            for i in range(j*batch,(j+1)*batch):
                 set = X[:,i]
                 observed = Y[:,i]
                 self.__forward_feed(set)
                 self.__backprop_Last(observed)
-                self.__backprop_Previous(observed,set)
+                #self.__backprop_Previous1(observed,set)
+                self.__backprop_Previous2(set)
+                #print(self.d_Weights)
+                #input()
             self.d_Weights.reverse()                     #d_Weights contains the Sum of the derivatives of the weights. Reverse(because [0] == last layer weights)
             self.d_Biases.reverse()                      #Same thing but for the biases
+            # print(self.d_Weights)
+            # input()
             layers = len(self.Layers)
             for layer in range(layers):
                 inputs = len(self.Weights[layer])
                 #Calculating new weights
                 for feature in range(inputs):
-                    #input(self.Weights[layer][feature])
                     nodes =  len(self.Weights[layer][feature])
                     for node in range(nodes):
                         old_weight = self.Weights[layer][feature][node]
                         derivative = self.d_Weights[layer][feature][node]
                         step_size = derivative*self.Learning_Rate
                         new_weight = old_weight - step_size
-                    #    print(new_weight," = ",old_weight," - ",step_size)
                         self.Weights[layer][feature][node] = new_weight
                 #Calculating new biases
                 for node in range(len(self.Biases[layer])):
@@ -183,12 +235,13 @@ class Neural_Network:
     def get_Eval(self):
         return self.Evaluation
 
-    def train(self,X,Y,repeats):
+    def train(self,X,Y,repeats,batch):
         X = np.array(X).T
         Y = np.array(Y).T
         for repeat in range(repeats):
+            self.__GradientDescent(X,Y,batch)
             print("\tTraining: ",repeat+1,"/",repeats," completed.")
-            self.__GradientDescent(X,Y)
+
 
 
 
