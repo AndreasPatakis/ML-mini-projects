@@ -230,12 +230,12 @@ class Neural_Network:
     def get_Eval(self):
         return self.Evaluation
 
-    def train(self,X,Y,repeats,batch):
+    def train(self,X,Y,epochs,batch):
         X = np.array(X).T
         Y = np.array(Y).T
-        for repeat in range(repeats):
+        for epoch in range(epochs):
             self.__GradientDescent(X,Y,batch)
-            print("\tEpoch: ",repeat+1,"/",repeats," completed.")
+            print("\tEpoch: ",epoch+1,"/",epochs," completed.")
 
     def test(self,X,Y):
         X = np.array(X).T
