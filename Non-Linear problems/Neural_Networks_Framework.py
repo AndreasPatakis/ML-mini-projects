@@ -130,34 +130,7 @@ class Neural_Network:
         self.d_Weights[0]+=w_reverse
         self.d_Biases[0]+=b_reverse
 
-
-
-    def __backprop_Previous1(self,observed,dataset):
-        x = self.X
-        y = self.Layers[-2]
-        w_reverse = np.zeros(shape=(x,y))
-        b_reverse = np.zeros(y)
-        #for each node in the layer -2
-        for node in range(self.Layers[-2]):
-            w_temp = []
-            #SSR_sum = self.__d_SSR(observed,node)
-            SSR_sum = self.__d_hout(0,node)
-            z = self.__d_sigmoid(self.H[-2][node][0])
-            b = SSR_sum*z
-            for input in dataset:
-                r = SSR_sum*z*input
-                w_temp.append(r)
-            w_reverse[:,node] += np.array(w_temp).T
-            b_reverse[node] += b
-            if(len(self.d_Weights) == 1):
-                self.d_Weights.append(w_reverse)
-                self.d_Biases.append(b_reverse)
-            else:
-                self.d_Weights[1]+=w_reverse
-                self.d_Biases[1]+=b_reverse
-
-
-    def __backprop_Previous2(self,set):
+    def __backprop_Previous(self,set):
         layers = len(self.Layers)-1
         for layer in range(layers-1,-1,-1):
             curr_nodes = self.Layers[layer]
@@ -202,16 +175,9 @@ class Neural_Network:
                 observed = Y[:,i]
                 self.__forward_feed(set)
                 self.__backprop_Last(observed)
-                #self.__backprop_Previous1(observed,set)
-                self.__backprop_Previous2(set)
-                # print(self.d_Hout_Total)
-                # input()
-                #print(self.d_Weights)
-                #input()
+                self.__backprop_Previous(set)
             self.d_Weights.reverse()                     #d_Weights contains the Sum of the derivatives of the weights. Reverse(because [0] == last layer weights)
             self.d_Biases.reverse()                      #Same thing but for the biases
-            # print(self.d_Weights)
-            # input()
             layers = len(self.Layers)
             for layer in range(layers):
                 inputs = len(self.Weights[layer])
@@ -235,6 +201,30 @@ class Neural_Network:
             self.d_Weights = []
             self.d_Biases = []
 
+    def __evaluate(self,set,observed):
+        self.__forward_feed(set)
+        prediction = []
+        result = observed.tolist()
+        last_layer = self.H[-1]
+        #print(last_layer)
+        for node in last_layer:
+            prediction.append(node[1])               #0 for net value(before normalization(sigmoid)), 1 is for output value
+        pos_prediction = prediction.index(max(prediction))
+        pos_result = result.index(max(result))
+        if(pos_prediction == pos_result):
+            return 1
+        else:
+            return 0
+
+    def feed_forward_result(self,set):
+        self.__forward_feed(set)
+        nn_result = self.H[-1].tolist()
+        nn_result_sig=[]
+        for node in nn_result:
+            nn_result_sig.append(node[1])
+        prediction = [0]*len(nn_result_sig)
+        prediction[nn_result_sig.index(max(nn_result_sig))] = 1
+        return prediction
 
 
     def get_Eval(self):
@@ -245,10 +235,7 @@ class Neural_Network:
         Y = np.array(Y).T
         for repeat in range(repeats):
             self.__GradientDescent(X,Y,batch)
-            print("\tTraining: ",repeat+1,"/",repeats," completed.")
-
-
-
+            print("\tEpoch: ",repeat+1,"/",repeats," completed.")
 
     def test(self,X,Y):
         X = np.array(X).T
@@ -261,19 +248,3 @@ class Neural_Network:
             correct += self.__evaluate(set,observed)
         score = (correct/total_sets)*100
         self.Evaluation = score
-        print("\nClassifier's Accuracy: ",score,"%")
-
-
-    def __evaluate(self,set,observed):
-        self.__forward_feed(set)
-        prediction = []
-        result = observed.tolist()
-        last_layer = self.H[-1]
-        for node in last_layer:
-            prediction.append(node[1])               #0 for net value(before generilization(sigmoid)), 1 is for output value
-        pos_prediction = prediction.index(max(prediction))
-        pos_result = result.index(max(result))
-        if(pos_prediction == pos_result):
-            return 1
-        else:
-            return 0
