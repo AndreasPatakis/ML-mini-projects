@@ -4,11 +4,9 @@ from mpl_toolkits.mplot3d import Axes3D
 import matplotlib.pyplot as plt
 import csv
 
-# Init params
 m = 400
 class_i = [[]for x in range(3)]
 class_b = [[]for x in range(3)]
-
 #Points for feature A
 for i in range(m):
     x1 = rand.randint(20,60)

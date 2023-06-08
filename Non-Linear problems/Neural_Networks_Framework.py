@@ -1,7 +1,6 @@
 import numpy as np
 import random as rand
 
-# Main class
 class Neural_Network:
     def __init__(self,X,Layers,a):
         self.X = X
