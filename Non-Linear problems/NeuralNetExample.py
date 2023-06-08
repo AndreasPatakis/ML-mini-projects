@@ -1,5 +1,7 @@
 from Neural_Networks_Framework import Neural_Network
 
+# Execution example
+
 train = []
 with open("./3dPointsTrain.csv","r") as datacsv:
     for line in datacsv:
